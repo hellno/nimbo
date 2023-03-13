@@ -23,6 +23,7 @@ AWS=/usr/local/bin/aws
 PROJ_DIR=/home/ubuntu/project
 CONDA_PATH=/home/ubuntu/miniconda3
 CONDASH=$CONDA_PATH/etc/profile.d/conda.sh
+MAMBA_PATH=/home/ubuntu/micromamba
 
 cd $PROJ_DIR
 
@@ -51,22 +52,31 @@ mkdir -p $CONDA_PATH
 
 
 # ERROR: This currently doesn't allow for a new unseen env to be passed. Fix this.
-if [ -f "$CONDASH" ]; then
-    echo ""
-    echo "Conda installation found."
-else
-    echo "Conda installation not found. Installing..."
-    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh -bfp /home/ubuntu/miniconda3
-    rm Miniconda3-latest-Linux-x86_64.sh
-    echo "source $CONDASH" >> .bashrc
-fi
+#if [ -f "$CONDASH" ]; then
+#    echo ""
+#    echo "Conda installation found."
+#else
+  #    echo "Conda installation not found. Installing..."
+  #    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  #    bash Miniconda3-latest-Linux-x86_64.sh -bfp /home/ubuntu/miniconda3
+  #    rm Miniconda3-latest-Linux-x86_64.sh
+  #    echo "source $CONDASH" >> .bashrc
+#fi
+#source $CONDASH
 
-source $CONDASH
+echo "MAMBA installing..."
+curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+#./bin/micromamba shell init -s bash -p ~/micromamba  # this writes to your .bashrc file
+#source /home/ubuntu/.bashrc
 
-echo "Creating conda environment: $ENV_NAME"
-conda env create -q --file $ENV_FILE
-conda activate $ENV_NAME
+
+echo "Creating mamba environment: $ENV_NAME"
+#conda env create -q --file $ENV_FILE
+./bin/micromamba create -y -n $ENV_NAME --file $ENV_FILE
+
+#conda activate $ENV_NAME
+eval "$(./bin/micromamba shell hook --shell=bash)"
+micromamba activate $ENV_NAME
 
 echo "Done."
 
@@ -90,9 +100,11 @@ if [ "$JOB_CMD" = "_nimbo_launch_and_setup" ]; then
     echo "Setup complete. You can now use 'nimbo ssh $1' to ssh into this instance."
     exit 0
 elif [ "$JOB_CMD" = "_nimbo_notebook" ]; then
-    if ! conda env export | grep -q jupyterlab; then
+#    if ! conda env export | grep -q jupyterlab; then
+    if ! micromamba env export | grep -q jupyterlab; then
         echo "Jupyterlab installation not found. Installing..."
-        conda install -q -y jupyterlab -c conda-forge >/dev/null
+#        conda install -q -y jupyterlab -c conda-forge >/dev/null
+        micromamba install -q -y jupyterlab -c conda-forge >/dev/null
     fi
     nohup jupyter lab --no-browser --port 57467 --autoreload --ServerApp.token="" >/tmp/nimbo-notebook-logs 2>&1 &
     echo "Notebook running at http://localhost:57467/lab"
@@ -106,7 +118,8 @@ echo ""
 echo "Saving results to S3..."
 $S3SYNC $LOCAL_RESULTS_PATH $S3_RESULTS_PATH
 
-conda deactivate
+#conda deactivate
+micromamba deactivate
 echo ""
 echo "Job finished."
 
